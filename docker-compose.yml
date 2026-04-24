@@ -35,9 +35,8 @@ services:
       - beefburger-network
 
   api:
-    build:
-      context: .
-      dockerfile: GoodHamburger.Api/Dockerfile
+    image:
+      alysonsz/beefburger-api:latest
     container_name: goodhamburger-api
     ports:
       - "${API_PORT:-5000}:8080"
@@ -52,6 +51,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - beefburger-network
+
+  frontend:
+    image: 
+      alysonsz/beefburger-frontend:latest
+    container_name: goodhamburger-frontend
+    ports:
+      - "5102:80"
+    depends_on:
+      - api
     networks:
       - beefburger-network
 
