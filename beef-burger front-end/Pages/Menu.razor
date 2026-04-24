@@ -1,0 +1,118 @@
+@page "/menu"
+@inject IMenuItemService MenuItemService
+
+<PageTitle>Menu - Beef Burger</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h2>Our Menu</h2>
+    
+    <div style="display: flex; gap: 1rem;">
+        <input type="text" class="form-control" placeholder="Search items..." style="width: 250px;" 
+               @bind="searchTerm" @bind:event="oninput" @onkeyup="Search" />
+    </div>
+</div>
+
+<div class="category-filters">
+    <button class="category-btn @(selectedCategory == null ? "active" : "")" @onclick="() => FilterByCategory(null)">All</button>
+    <button class="category-btn @(selectedCategory == 1 ? "active" : "")" @onclick="() => FilterByCategory(1)">Sandwiches</button>
+    <button class="category-btn @(selectedCategory == 2 ? "active" : "")" @onclick="() => FilterByCategory(2)">Fries</button>
+    <button class="category-btn @(selectedCategory == 3 ? "active" : "")" @onclick="() => FilterByCategory(3)">Drinks</button>
+</div>
+
+@if (isLoading)
+{
+    <LoadingSpinner />
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined text-danger">error</span>
+        <h3>Erro de Conexão</h3>
+        <p>@errorMessage</p>
+        <button class="btn btn-primary" style="margin-top: 1rem;" @onclick="LoadItems">Tentar Novamente</button>
+    </div>
+}
+else if (items == null || !items.Any())
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined">search_off</span>
+        <h3>No items found</h3>
+        <p>Try adjusting your search or category filter.</p>
+    </div>
+}
+else
+{
+    <div class="grid grid-cols-4">
+        @foreach (var item in items)
+        {
+            <MenuItemCard Item="item" />
+        }
+    </div>
+}
+
+@code {
+    private List<MenuItemEntityDto>? items;
+    private bool isLoading = true;
+    private int? selectedCategory = null;
+    private string searchTerm = "";
+    private string? errorMessage = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadItems();
+    }
+
+    private async Task LoadItems()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+        
+        try
+        {
+            await Task.Delay(300); // Allow backend cache to invalidate
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var response = await MenuItemService.SearchAsync(searchTerm);
+                items = response.Data;
+                selectedCategory = null; // Clear category when searching
+            }
+            else if (selectedCategory.HasValue)
+            {
+                var response = await MenuItemService.GetByCategoryAsync(selectedCategory.Value);
+                items = response.Data;
+            }
+            else
+            {
+                var response = await MenuItemService.GetAllAsync();
+                items = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Não foi possível conectar à API do backend. Verifique se o backend está rodando em http://localhost:5000 ou 5271.";
+            Console.WriteLine($"Erro na API: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task FilterByCategory(int? category)
+    {
+        selectedCategory = category;
+        searchTerm = ""; // Clear search when filtering
+        await LoadItems();
+    }
+
+    private async Task Search(KeyboardEventArgs e)
+    {
+        // Simple debounce could be added here
+        if (e.Key == "Enter" || searchTerm.Length == 0 || searchTerm.Length >= 3)
+        {
+            await LoadItems();
+        }
+    }
+}

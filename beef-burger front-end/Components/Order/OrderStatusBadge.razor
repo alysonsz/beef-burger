@@ -1,0 +1,22 @@
+@using BeefBurger.FrontEnd.Models
+
+<span class="badge @GetBadgeClass()">
+    @Status.ToString()
+</span>
+
+@code {
+    [Parameter] public OrderStatus Status { get; set; }
+
+    private string GetBadgeClass()
+    {
+        return Status switch
+        {
+            OrderStatus.Pending => "badge-primary",
+            OrderStatus.Preparing => "badge-primary",
+            OrderStatus.Ready => "badge-success",
+            OrderStatus.Delivered => "badge-success",
+            OrderStatus.Cancelled => "badge-danger",
+            _ => "badge-primary"
+        };
+    }
+}

@@ -1,0 +1,44 @@
+@using BeefBurger.FrontEnd.Models
+@using BeefBurger.FrontEnd.Extensions
+
+<div class="menu-card @(IsSelected ? "selected-item-card" : "")" @onclick="OnClick">
+    <img src="@Item.ImageUrl" alt="@Item.Name" class="menu-card-img" />
+    <div class="menu-card-content">
+        <h3 class="menu-card-title">@Item.Name</h3>
+        <span class="badge @GetCategoryBadgeClass()">@Item.Category.ToString()</span>
+        <div class="menu-card-price">@Item.Price.FormatCurrency()</div>
+        
+        @if (ShowSelectButton)
+        {
+            <button class="btn @(IsSelected ? "btn-outline" : "btn-primary")" style="width: 100%; margin-top: 1rem;" @onclick:stopPropagation="true" @onclick="OnClick">
+                @(IsSelected ? "Selected" : "Select")
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public MenuItemEntityDto Item { get; set; } = default!;
+    [Parameter] public bool ShowSelectButton { get; set; } = false;
+    [Parameter] public bool IsSelected { get; set; } = false;
+    [Parameter] public EventCallback<MenuItemEntityDto> OnItemSelected { get; set; }
+
+    private async Task OnClick()
+    {
+        if (OnItemSelected.HasDelegate)
+        {
+            await OnItemSelected.InvokeAsync(Item);
+        }
+    }
+
+    private string GetCategoryBadgeClass()
+    {
+        return Item.Category switch
+        {
+            MenuItemCategory.Sandwich => "badge-primary",
+            MenuItemCategory.Fries => "badge-success",
+            MenuItemCategory.Drink => "badge-primary",
+            _ => "badge-primary"
+        };
+    }
+}

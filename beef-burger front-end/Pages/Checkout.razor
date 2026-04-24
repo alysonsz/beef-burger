@@ -1,0 +1,167 @@
+@page "/checkout"
+@inject IMenuItemService MenuItemService
+@inject IOrderService OrderService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Checkout - Beef Burger</PageTitle>
+
+<h2>Build Your Combo</h2>
+<p style="color: var(--text-muted); margin-bottom: 2rem;">Select one item from each category to get the best discounts.</p>
+
+@if (isLoading)
+{
+    <LoadingSpinner />
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined text-danger">error</span>
+        <h3>Erro de Conexão</h3>
+        <p>@errorMessage</p>
+        <button class="btn btn-primary" style="margin-top: 1rem;" @onclick="LoadMenu">Tentar Novamente</button>
+    </div>
+}
+else
+{
+    <div class="checkout-grid">
+        <div class="selections">
+            
+            <!-- Sandwiches -->
+            <div class="selection-area">
+                <h3 class="selection-title">
+                    <span class="material-symbols-outlined text-primary">lunch_dining</span>
+                    Select a Sandwich
+                </h3>
+                <div class="grid grid-cols-3">
+                    @foreach (var item in sandwiches)
+                    {
+                        <MenuItemCard Item="item" ShowSelectButton="true" 
+                                      IsSelected="selectedSandwich?.Id == item.Id"
+                                      OnItemSelected="() => selectedSandwich = (selectedSandwich?.Id == item.Id ? null : item)" />
+                    }
+                </div>
+            </div>
+
+            <!-- Fries -->
+            <div class="selection-area">
+                <h3 class="selection-title">
+                    <span class="material-symbols-outlined text-primary">fastfood</span>
+                    Select Fries
+                </h3>
+                <div class="grid grid-cols-3">
+                    @foreach (var item in fries)
+                    {
+                        <MenuItemCard Item="item" ShowSelectButton="true" 
+                                      IsSelected="selectedFries?.Id == item.Id"
+                                      OnItemSelected="() => selectedFries = (selectedFries?.Id == item.Id ? null : item)" />
+                    }
+                </div>
+            </div>
+
+            <!-- Drinks -->
+            <div class="selection-area">
+                <h3 class="selection-title">
+                    <span class="material-symbols-outlined text-primary">local_drink</span>
+                    Select a Drink
+                </h3>
+                <div class="grid grid-cols-3">
+                    @foreach (var item in drinks)
+                    {
+                        <MenuItemCard Item="item" ShowSelectButton="true" 
+                                      IsSelected="selectedDrink?.Id == item.Id"
+                                      OnItemSelected="() => selectedDrink = (selectedDrink?.Id == item.Id ? null : item)" />
+                    }
+                </div>
+            </div>
+
+        </div>
+
+        <div>
+            <OrderSummary Sandwich="selectedSandwich" Fries="selectedFries" Drink="selectedDrink" OnCheckout="PlaceOrder" />
+        </div>
+    </div>
+}
+
+@code {
+    private List<MenuItemEntityDto> sandwiches = new();
+    private List<MenuItemEntityDto> fries = new();
+    private List<MenuItemEntityDto> drinks = new();
+
+    private MenuItemEntityDto? selectedSandwich;
+    private MenuItemEntityDto? selectedFries;
+    private MenuItemEntityDto? selectedDrink;
+
+    private bool isLoading = true;
+    private string? errorMessage = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMenu();
+    }
+
+    private async Task LoadMenu()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+        
+        try
+        {
+            await Task.Delay(300); // Allow backend cache to invalidate
+            var sandwichesResponse = await MenuItemService.GetByCategoryAsync((int)MenuItemCategory.Sandwich);
+            var friesResponse = await MenuItemService.GetByCategoryAsync((int)MenuItemCategory.Fries);
+            var drinksResponse = await MenuItemService.GetByCategoryAsync((int)MenuItemCategory.Drink);
+
+            sandwiches = sandwichesResponse.Data ?? new();
+            fries = friesResponse.Data ?? new();
+            drinks = drinksResponse.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Não foi possível conectar à API do backend.";
+            Console.WriteLine($"Erro na API: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PlaceOrder()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var request = new CreateOrderRequest
+            {
+                Sandwich = selectedSandwich?.Id,
+                Fries = selectedFries?.Id,
+                Drink = selectedDrink?.Id
+            };
+
+            var response = await OrderService.CreateAsync(request);
+
+            if (response.Success)
+            {
+                NavigationManager.NavigateTo("/orders");
+            }
+            else
+            {
+                errorMessage = response.Error ?? "Erro ao criar pedido.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Não foi possível conectar à API para enviar o pedido.";
+            Console.WriteLine($"Erro na API: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

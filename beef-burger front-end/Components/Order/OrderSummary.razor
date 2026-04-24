@@ -1,0 +1,70 @@
+@using BeefBurger.FrontEnd.Models
+@using BeefBurger.FrontEnd.Extensions
+
+<div class="summary-box">
+    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span class="material-symbols-outlined">shopping_bag</span> Order Summary
+    </h3>
+
+    <div class="summary-row">
+        <span>Sandwich:</span>
+        <span class="text-primary">@(Sandwich?.Name ?? "Not selected")</span>
+    </div>
+    <div class="summary-row">
+        <span>Fries:</span>
+        <span class="text-primary">@(Fries?.Name ?? "Not selected")</span>
+    </div>
+    <div class="summary-row">
+        <span>Drink:</span>
+        <span class="text-primary">@(Drink?.Name ?? "Not selected")</span>
+    </div>
+
+    @if (Subtotal > 0)
+    {
+        <div class="summary-row" style="margin-top: 1.5rem;">
+            <span>Subtotal:</span>
+            <span>@Subtotal.FormatCurrency()</span>
+        </div>
+        @if (Discount > 0)
+        {
+            <div class="summary-row text-success">
+                <span>Discount:</span>
+                <span>-@Discount.FormatCurrency()</span>
+            </div>
+        }
+    }
+
+    <div class="summary-total">
+        <span>Total:</span>
+        <span class="text-primary">@Total.FormatCurrency()</span>
+    </div>
+
+    <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;" disabled="@(!CanCheckout)" @onclick="OnCheckout">
+        Place Order
+    </button>
+</div>
+
+@code {
+    [Parameter] public MenuItemEntityDto? Sandwich { get; set; }
+    [Parameter] public MenuItemEntityDto? Fries { get; set; }
+    [Parameter] public MenuItemEntityDto? Drink { get; set; }
+    
+    [Parameter] public EventCallback OnCheckout { get; set; }
+
+    public bool CanCheckout => Sandwich != null || Fries != null || Drink != null;
+
+    public decimal Subtotal => (Sandwich?.Price ?? 0) + (Fries?.Price ?? 0) + (Drink?.Price ?? 0);
+    
+    public decimal Discount
+    {
+        get
+        {
+            if (Sandwich != null && Fries != null && Drink != null) return Subtotal * 0.20m;
+            if (Sandwich != null && Drink != null) return Subtotal * 0.15m;
+            if (Sandwich != null && Fries != null) return Subtotal * 0.10m;
+            return 0;
+        }
+    }
+
+    public decimal Total => Subtotal - Discount;
+}

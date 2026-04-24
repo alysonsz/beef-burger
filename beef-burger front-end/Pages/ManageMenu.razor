@@ -1,0 +1,269 @@
+@page "/manage"
+@inject IMenuItemService MenuItemService
+
+<PageTitle>Manage Menu - Beef Burger</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h2>Manage Menu Items</h2>
+    <button class="btn btn-primary" @onclick="OpenCreateDialog">
+        <span class="material-symbols-outlined">add</span> New Item
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(feedback))
+{
+    <div class="menu-card" style="padding: 1rem; margin-bottom: 1.5rem; border-color: @(feedbackSuccess ? "var(--success)" : "var(--danger)");">
+        <p style="color: @(feedbackSuccess ? "var(--success)" : "var(--danger)"); margin: 0;">@feedback</p>
+    </div>
+}
+
+@* ===== CREATE / EDIT FORM ===== *@
+@if (showForm)
+{
+    <div class="menu-card" style="padding: 2rem; margin-bottom: 2rem; border-color: var(--primary);">
+        <h3 style="margin-bottom: 1.5rem;">@(isEditing ? "Edit Item" : "Create New Item")</h3>
+
+        <div class="form-group">
+            <label class="form-label">Name</label>
+            <input class="form-control" @bind="formName" placeholder="Item name..." />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Price ($)</label>
+            <input class="form-control" type="number" step="0.01" @bind="formPrice" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Image URL</label>
+            <input class="form-control" @bind="formImageUrl" placeholder="https://..." />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-control" @bind="formCategory">
+                <option value="1">Sandwich</option>
+                <option value="2">Fries</option>
+                <option value="3">Drink</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn btn-primary" @onclick="SaveItem" disabled="@isSaving">
+                @(isSaving ? "Saving..." : (isEditing ? "Update" : "Create"))
+            </button>
+            <button class="btn btn-outline" @onclick="CloseForm">Cancel</button>
+        </div>
+    </div>
+}
+
+@* ===== ITEM LIST ===== *@
+@if (isLoading)
+{
+    <LoadingSpinner />
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined text-danger">error</span>
+        <h3>Error</h3>
+        <p>@errorMessage</p>
+        <button class="btn btn-primary" style="margin-top: 1rem;" @onclick="LoadItems">Retry</button>
+    </div>
+}
+else if (items == null || !items.Any())
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined">restaurant_menu</span>
+        <h3>No custom items</h3>
+        <p>System items are shown on the Menu page. Create custom items above.</p>
+    </div>
+}
+else
+{
+    <div class="grid grid-cols-4">
+        @foreach (var item in items)
+        {
+            <div class="menu-card">
+                <img src="@item.ImageUrl" alt="@item.Name" class="menu-card-img" />
+                <div class="menu-card-content">
+                    <h3 class="menu-card-title">@item.Name</h3>
+                    <span class="badge @GetCategoryBadge(item.Category)">@item.Category.ToString()</span>
+                    <div class="menu-card-price">@item.Price.FormatCurrency()</div>
+
+                    @if (!IsFixedItem(item.Id))
+                    {
+                        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                            <button class="btn btn-outline" style="flex: 1;" @onclick="() => OpenEditDialog(item)">
+                                <span class="material-symbols-outlined">edit</span>
+                            </button>
+                            <button class="btn btn-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);" @onclick="() => DeleteItem(item.Id)">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem;">System item (read-only)</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<MenuItemEntityDto>? items;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    // Form state
+    private bool showForm = false;
+    private bool isEditing = false;
+    private bool isSaving = false;
+    private int editingId;
+    private string formName = "";
+    private decimal formPrice;
+    private string formImageUrl = "";
+    private int formCategory = 1;
+
+    // Feedback
+    private string? feedback;
+    private bool feedbackSuccess;
+
+    private static readonly int[] FixedIds = { 500, 450, 700, 200, 250 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadItems();
+    }
+
+    private async Task LoadItems()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            await Task.Delay(300); // Allow backend cache to invalidate
+            var response = await MenuItemService.GetAllAsync();
+            items = response.Data;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load menu items: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool IsFixedItem(int id) => FixedIds.Contains(id);
+
+    private void OpenCreateDialog()
+    {
+        isEditing = false;
+        formName = "";
+        formPrice = 0;
+        formImageUrl = "";
+        formCategory = 1;
+        showForm = true;
+        feedback = null;
+    }
+
+    private void OpenEditDialog(MenuItemEntityDto item)
+    {
+        isEditing = true;
+        editingId = item.Id;
+        formName = item.Name;
+        formPrice = item.Price;
+        formImageUrl = item.ImageUrl;
+        formCategory = (int)item.Category;
+        showForm = true;
+        feedback = null;
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+    }
+
+    private async Task SaveItem()
+    {
+        isSaving = true;
+        feedback = null;
+
+        try
+        {
+            if (isEditing)
+            {
+                var request = new UpdateMenuItemRequest
+                {
+                    Name = formName,
+                    Price = formPrice,
+                    ImageUrl = formImageUrl,
+                    Category = (MenuItemCategory)formCategory
+                };
+                var response = await MenuItemService.UpdateAsync(editingId, request);
+                feedback = response.Message;
+                feedbackSuccess = response.Success;
+            }
+            else
+            {
+                var request = new CreateMenuItemRequest
+                {
+                    Name = formName,
+                    Price = formPrice,
+                    ImageUrl = formImageUrl,
+                    Category = (MenuItemCategory)formCategory
+                };
+                var response = await MenuItemService.CreateAsync(request);
+                feedback = response.Message;
+                feedbackSuccess = response.Success;
+            }
+
+            if (feedbackSuccess)
+            {
+                showForm = false;
+                StateHasChanged();
+                await LoadItems();
+            }
+        }
+        catch (Exception ex)
+        {
+            feedback = $"Error: {ex.Message}";
+            feedbackSuccess = false;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteItem(int id)
+    {
+        feedback = null;
+        try
+        {
+            var response = await MenuItemService.DeleteAsync(id);
+            feedback = response.Message;
+            feedbackSuccess = response.Success;
+            StateHasChanged();
+            if (feedbackSuccess)
+                await LoadItems();
+        }
+        catch (Exception ex)
+        {
+            feedback = $"Error: {ex.Message}";
+            feedbackSuccess = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetCategoryBadge(MenuItemCategory category) => category switch
+    {
+        MenuItemCategory.Sandwich => "badge-primary",
+        MenuItemCategory.Fries => "badge-success",
+        MenuItemCategory.Drink => "badge-primary",
+        _ => "badge-primary"
+    };
+}

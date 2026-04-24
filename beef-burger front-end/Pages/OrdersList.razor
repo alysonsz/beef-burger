@@ -1,0 +1,336 @@
+@page "/orders"
+@inject IOrderService OrderService
+@inject IMenuItemService MenuItemService
+
+<PageTitle>My Orders - Beef Burger</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h2>My Orders</h2>
+    <button class="btn btn-primary" @onclick="LoadOrders">
+        <span class="material-symbols-outlined">refresh</span> Refresh
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(feedback))
+{
+    <div class="menu-card" style="padding: 1rem; margin-bottom: 1.5rem; border-color: @(feedbackSuccess ? "var(--success)" : "var(--danger)");">
+        <p style="color: @(feedbackSuccess ? "var(--success)" : "var(--danger)"); margin: 0;">@feedback</p>
+    </div>
+}
+
+@if (showEditModal)
+{
+    <div class="menu-card" style="padding: 2rem; margin-bottom: 2rem; border-color: var(--primary);">
+        <h3 style="margin-bottom: 1.5rem;">Edit Order #@editingOrderId</h3>
+
+        <div class="form-group">
+            <label class="form-label">Sandwich</label>
+            <select class="form-control" @bind="editSandwich">
+                <option value="0">-- None --</option>
+                @foreach (var s in sandwiches)
+                {
+                    <option value="@s.Id">@s.Name (@s.Price.FormatCurrency())</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fries</label>
+            <select class="form-control" @bind="editFries">
+                <option value="0">-- None --</option>
+                @foreach (var f in fries)
+                {
+                    <option value="@f.Id">@f.Name (@f.Price.FormatCurrency())</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Drink</label>
+            <select class="form-control" @bind="editDrink">
+                <option value="0">-- None --</option>
+                @foreach (var d in drinks)
+                {
+                    <option value="@d.Id">@d.Name (@d.Price.FormatCurrency())</option>
+                }
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn btn-primary" @onclick="SaveOrderEdit" disabled="@isSaving">
+                @(isSaving ? "Saving..." : "Update Order")
+            </button>
+            <button class="btn btn-outline" @onclick="() => showEditModal = false">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (showStatusModal)
+{
+    <div class="menu-card" style="padding: 2rem; margin-bottom: 2rem; border-color: var(--primary);">
+        <h3 style="margin-bottom: 1.5rem;">Update Status - Order #@statusOrderId</h3>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            @foreach (var status in Enum.GetValues<OrderStatus>())
+            {
+                <button class="btn @(status == currentOrderStatus ? "btn-primary" : "btn-outline")"
+                        @onclick="() => ChangeStatus(status)">
+                    @status.ToString()
+                </button>
+            }
+        </div>
+        <button class="btn btn-outline" style="margin-top: 1rem;" @onclick="() => showStatusModal = false">Close</button>
+    </div>
+}
+
+@if (isLoading)
+{
+    <LoadingSpinner />
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined text-danger">error</span>
+        <h3>Connection Error</h3>
+        <p>@errorMessage</p>
+        <button class="btn btn-primary" style="margin-top: 1rem;" @onclick="LoadOrders">Retry</button>
+    </div>
+}
+else if (orders == null || !orders.Any())
+{
+    <div class="empty-state">
+        <span class="material-symbols-outlined">receipt_long</span>
+        <h3>No orders found</h3>
+        <p>You haven't placed any orders yet.</p>
+        <a href="checkout" class="btn btn-primary" style="margin-top: 1rem;">Order Now</a>
+    </div>
+}
+else
+{
+    <div class="grid grid-cols-2">
+        @foreach (var order in orders.OrderByDescending(o => o.CreatedAt))
+        {
+            <div class="menu-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                    <div>
+                        <h3 style="margin-bottom: 0.25rem;">Order #@order.Id</h3>
+                        <div style="color: var(--text-muted); font-size: 0.875rem;">@order.CreatedAt.ToString("g")</div>
+                    </div>
+                    <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" @onclick="() => OpenStatusModal(order)">
+                        <OrderStatusBadge Status="order.Status" />
+                    </button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1;">
+                    @if (order.Sandwich != null)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>🍔 @order.Sandwich.Name</span>
+                            <span>@order.Sandwich.Price.FormatCurrency()</span>
+                        </div>
+                    }
+                    @if (order.Fries != null)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>🍟 @order.Fries.Name</span>
+                            <span>@order.Fries.Price.FormatCurrency()</span>
+                        </div>
+                    }
+                    @if (order.Drink != null)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>🥤 @order.Drink.Name</span>
+                            <span>@order.Drink.Price.FormatCurrency()</span>
+                        </div>
+                    }
+                </div>
+
+                <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: auto;">
+                    @if (order.Discount > 0)
+                    {
+                        <div style="display: flex; justify-content: space-between; color: var(--success); font-size: 0.875rem; margin-bottom: 0.25rem;">
+                            <span>Discount</span>
+                            <span>-@order.Discount.FormatCurrency()</span>
+                        </div>
+                    }
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 1.25rem; color: var(--primary);">
+                        <span>Total</span>
+                        <span>@order.Total.FormatCurrency()</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                    <button class="btn btn-outline" style="flex: 1;" @onclick="() => OpenEditModal(order)">
+                        <span class="material-symbols-outlined">edit</span> Edit
+                    </button>
+                    <button class="btn btn-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);" @onclick="() => DeleteOrder(order.Id)">
+                        <span class="material-symbols-outlined">delete</span> Delete
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<OrderDto>? orders;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? feedback;
+    private bool feedbackSuccess;
+    private bool isSaving;
+
+    private bool showEditModal;
+    private int editingOrderId;
+    private int editSandwich;
+    private int editFries;
+    private int editDrink;
+    private List<MenuItemEntityDto> sandwiches = new();
+    private List<MenuItemEntityDto> fries = new();
+    private List<MenuItemEntityDto> drinks = new();
+
+    private bool showStatusModal;
+    private int statusOrderId;
+    private OrderStatus currentOrderStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        isLoading = true;
+        errorMessage = null;
+        feedback = null;
+        StateHasChanged();
+        try
+        {
+            await Task.Delay(300);
+            var response = await OrderService.GetAllAsync();
+            orders = response.Data;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Could not connect to API: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenEditModal(OrderDto order)
+    {
+        feedback = null;
+        showStatusModal = false;
+        editingOrderId = order.Id;
+
+        try
+        {
+            var sRes = await MenuItemService.GetByCategoryAsync(1);
+            var fRes = await MenuItemService.GetByCategoryAsync(2);
+            var dRes = await MenuItemService.GetByCategoryAsync(3);
+            sandwiches = sRes.Data ?? new();
+            fries = fRes.Data ?? new();
+            drinks = dRes.Data ?? new();
+        }
+        catch { }
+
+        editSandwich = order.Sandwich != null
+            ? sandwiches.FirstOrDefault(s => s.Name == order.Sandwich.Name)?.Id ?? 0
+            : 0;
+        editFries = order.Fries != null
+            ? fries.FirstOrDefault(f => f.Name == order.Fries.Name)?.Id ?? 0
+            : 0;
+        editDrink = order.Drink != null
+            ? drinks.FirstOrDefault(d => d.Name == order.Drink.Name)?.Id ?? 0
+            : 0;
+
+        showEditModal = true;
+    }
+
+    private async Task SaveOrderEdit()
+    {
+        isSaving = true;
+        feedback = null;
+        try
+        {
+            var request = new UpdateOrderRequest
+            {
+                Sandwich = editSandwich > 0 ? editSandwich : null,
+                Fries = editFries > 0 ? editFries : null,
+                Drink = editDrink > 0 ? editDrink : null
+            };
+            var response = await OrderService.UpdateAsync(editingOrderId, request);
+            feedback = response.Message;
+            feedbackSuccess = response.Success;
+            StateHasChanged();
+            if (response.Success)
+            {
+                showEditModal = false;
+                await LoadOrders();
+            }
+        }
+        catch (Exception ex)
+        {
+            feedback = $"Error: {ex.Message}";
+            feedbackSuccess = false;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenStatusModal(OrderDto order)
+    {
+        feedback = null;
+        showEditModal = false;
+        statusOrderId = order.Id;
+        currentOrderStatus = order.Status;
+        showStatusModal = true;
+    }
+
+    private async Task ChangeStatus(OrderStatus status)
+    {
+        feedback = null;
+        try
+        {
+            var response = await OrderService.UpdateStatusAsync(statusOrderId, (int)status);
+            feedback = response.Message;
+            feedbackSuccess = response.Success;
+            StateHasChanged();
+            if (response.Success)
+            {
+                currentOrderStatus = status;
+                await LoadOrders();
+            }
+        }
+        catch (Exception ex)
+        {
+            feedback = $"Error: {ex.Message}";
+            feedbackSuccess = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteOrder(int id)
+    {
+        feedback = null;
+        try
+        {
+            var response = await OrderService.DeleteAsync(id);
+            feedback = response.Message;
+            feedbackSuccess = response.Success;
+            StateHasChanged();
+            if (response.Success)
+                await LoadOrders();
+        }
+        catch (Exception ex)
+        {
+            feedback = $"Error: {ex.Message}";
+            feedbackSuccess = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,35 @@
+@inherits LayoutComponentBase
+
+<div class="app-layout">
+    <nav class="top-nav">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
+            <a href="" class="nav-brand">
+                <span class="material-symbols-outlined">lunch_dining</span>
+                Beef Burger
+            </a>
+            <div class="nav-links">
+                <NavLink href="" class="nav-link" Match="NavLinkMatch.All">
+                    <span class="material-symbols-outlined">home</span> Home
+                </NavLink>
+                <NavLink href="menu" class="nav-link" Match="NavLinkMatch.Prefix">
+                    <span class="material-symbols-outlined">restaurant_menu</span> Menu
+                </NavLink>
+                <NavLink href="checkout" class="nav-link" Match="NavLinkMatch.Prefix">
+                    <span class="material-symbols-outlined">shopping_cart</span> Order
+                </NavLink>
+                <NavLink href="orders" class="nav-link" Match="NavLinkMatch.Prefix">
+                    <span class="material-symbols-outlined">receipt_long</span> My Orders
+                </NavLink>
+                <NavLink href="manage" class="nav-link" Match="NavLinkMatch.Prefix">
+                    <span class="material-symbols-outlined">settings</span> Manage
+                </NavLink>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            @Body
+        </div>
+    </main>
+</div>
