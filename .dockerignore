@@ -1,0 +1,15 @@
+**/bin
+**/obj
+**/out
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+**/goodhamburger.db
+**/goodhamburger.db-shm
+**/goodhamburger.db-wal
+**/test_order.json
+.env
