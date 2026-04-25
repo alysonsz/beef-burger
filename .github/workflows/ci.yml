@@ -1,0 +1,40 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    name: Build and Test Fullstack
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8.0 & 9.0
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          8.0.x
+          9.0.x
+
+    - name: Restore Backend Dependencies
+      run: dotnet restore GoodHamburger.sln
+
+    - name: Build Backend
+      run: dotnet build GoodHamburger.sln -c Release --no-restore
+
+    - name: Run Backend Tests
+      run: dotnet test GoodHamburger.sln -c Release --no-build --verbosity normal
+
+    - name: Restore Frontend Dependencies
+      working-directory: ./beef-burger front-end
+      run: dotnet restore BeefBurger.FrontEnd.csproj
+
+    - name: Build Frontend
+      working-directory: ./beef-burger front-end
+      run: dotnet build BeefBurger.FrontEnd.csproj -c Release --no-restore
