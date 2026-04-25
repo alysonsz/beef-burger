@@ -1,35 +1,18 @@
-# Beef Burger - Good Hamburger
+# Beef Burger - Good Hamburger 🍔
 
 A simple, clean, and maintainable fullstack system for managing orders at a hamburger shop called "Beef Burger". Built with **.NET 8** (Clean Architecture API) and **Blazor WebAssembly .NET 9** (Frontend).
 
-## Architecture
-
-The solution is divided into two main projects:
-
-1. **Back-end API** (`/GoodHamburger.Api` etc) - Built with .NET 8 following clean architecture principles (Domain, Application, Infrastructure, API).
-2. **Front-end Web** (`/beef-burger front-end`) - Built with Blazor WebAssembly .NET 9, styled with plain CSS for maximum customization and performance.
-
-### Technology Stack
-
-- **.NET 8.0 / .NET 9.0** - Frameworks
-- **ASP.NET Core Web API** - REST API backend
-- **Blazor WebAssembly** - SPA Frontend
-- **Entity Framework Core 8.0** - ORM
-- **SQL Server** - Relational database
-- **Redis** - Distributed caching for menu items
-- **Docker & Docker Compose** - Containerization & Orchestration
-- **Nginx** - Web server serving the frontend static files
-
 ---
 
-## Getting Started
+## Getting Started (Execution Instructions)
 
 ### Prerequisites
 - Docker & Docker Compose installed on your machine.
+- Git.
 
-### Running with Docker Compose (Recommended)
+### Running the Application
 
-This project is fully containerized. You do not need to install .NET SDKs to run it. The `docker-compose.yml` uses pre-built images from Docker Hub or builds them locally.
+This project is fully containerized. You **do not** need to install .NET SDKs to run it, as the `docker-compose` will build the source code securely inside isolated containers.
 
 1. Clone the repository:
 ```bash
@@ -39,40 +22,74 @@ cd beef-burger
 
 2. Start all services (SQL Server, Redis, API, and Frontend):
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 3. Access the applications:
 - **Frontend WebApp**: [http://localhost:5102](http://localhost:5102)
 - **Backend API (Swagger)**: [http://localhost:8080/swagger](http://localhost:8080/swagger)
 
-*(Note: Database migrations are automatically applied on API startup)*
+*(Note: Database migrations and Redis initialization are automatically applied on API startup)*
 
 ---
 
-## Features
+## Architecture & Technology Stack
 
-### 🍔 Menu Items
+The solution is divided into a Monorepo containing two main projects, fully orchestrated via Docker Compose:
+
+### 1. Back-end API (C# / .NET 8)
+Built strictly following **Clean Architecture** principles to ensure the separation of concerns:
+- **Domain**: Contains the core business rules (`Order`, `OrderItem`), Enums, and validation logic.
+- **Application**: Contains the DTOs (Data Transfer Objects) and Services (`OrderService`, `MenuItemService`).
+- **Infrastructure**: Data access layer using **Entity Framework Core 8.0**, connecting to a **SQL Server** database and a **Redis** instance for high-performance caching.
+- **API**: ASP.NET Core Web API layer containing the Controllers, Swagger UI, and global configurations (like custom JSON Serialization and CORS).
+
+### 2. Front-end Web (Blazor WebAssembly / .NET 9)
+A SPA (Single Page Application) built with Blazor WebAssembly.
+- **State Management**: Uses manual event callbacks and `StateHasChanged()` to ensure synchronous UI updates matching the Redis cache behavior.
+- **Styling**: Uses purely modular Vanilla CSS (`variables.css`, `layout.css`, `components.css`) for maximum customization and to avoid the overhead of large CSS frameworks.
+- **Hosting**: Deployed behind an **Nginx** reverse proxy using a multi-stage Dockerfile.
+
+---
+
+## Architectural Decisions
+
+During the development of this project, several architectural choices were made focusing on maintainability and enterprise readiness:
+
+- **Monorepo Approach:** Both the API and Frontend reside in the same repository. This makes it easier for reviewers and other developers to run the entire stack with a single `docker compose up` command.
+- **Redis for Menu Caching:** The menu items change rarely but are fetched frequently. Implementing a distributed cache with Redis significantly reduces the load on the SQL database and improves API response times.
+- **Local Context Builds over Remote Images:** To maintain 100% transparency for technical evaluations, the `docker-compose.yml` uses local `build: context` rather than pulling static images from Docker Hub. This guarantees that the code being reviewed is exactly the code being executed.
+- **Separation of Concerns without MediatR:** While Clean Architecture often pairs with MediatR, direct Service Injection (`IOrderService`) was chosen to avoid over-engineering and keep the execution flow straightforward and easy to trace for this domain size.
+- **Value Objects / Domain Entities:** Business validations (such as preventing duplicate items and ensuring categories match) are deeply embedded inside the Domain (`Order.cs`), rather than in the API Controllers.
+- **CI/CD Pipeline:** A GitHub Actions workflow (`ci.yml`) was added to ensure continuous integration. Every push automatically restores dependencies, builds both projects, and runs the `xUnit` test suite.
+
+---
+
+## What Was Left Out (Out of Scope)
+
+Given the focus on the core business logic (Orders and Menu Items CRUD), some standard enterprise features were deliberately left out to keep the project scoped and straightforward:
+
+1. **Authentication and Authorization:**
+   - There are no JWT tokens or Identity providers (like IdentityServer or Auth0). The API is completely public. In a real-world scenario, endpoints would be secured based on roles (e.g., `Admin`, `Customer`).
+2. **FluentValidation:**
+   - While the Domain executes critical validation, complex DTO validations (like preventing empty strings or ensuring maximum string lengths on incoming requests) were kept minimal. A library like FluentValidation would be added in a production environment.
+3. **Automated Docker Hub Deployments (CD):**
+   - The CI/CD pipeline currently focuses on building and testing (`Continuous Integration`). Automated pushes to a container registry and auto-deployments to a cloud provider (like AWS or Azure) were left out.
+4. **Resilience Policies (Polly):**
+   - While Entity Framework is configured with basic connection retries, advanced resilience patterns (like Circuit Breakers for the Redis cache) using Polly were omitted. 
+
+---
+
+## Features & Business Rules
+
+### Menu Items
 - **Sandwiches**: X Burger, X Egg, X Bacon, and Custom items.
 - **Sides**: Fries and Custom items.
 - **Drinks**: Soft drink and Custom items.
 
-### 🛒 Business Rules & Orders
+### Orders & Discounts
 - Each order can contain only ONE item from each category.
 - **Dynamic Discounts**:
   - Sandwich + Fries + Drink → 20% discount
   - Sandwich + Drink → 15% discount
   - Sandwich + Fries → 10% discount
-
-### 💻 Frontend Functionality
-- Full CRUD for orders and custom menu items.
-- Dynamic caching invalidation.
-- Responsive design and dynamic active-state routing.
-
----
-
-## Design Principles
-
-- **SOLID Principles** - Clear separation of concerns with layered architecture.
-- **Container-Ready** - Multi-stage builds for both .NET API and Blazor Wasm.
-- **Production-Ready** - Uses SQL Server and Redis for enterprise scenarios.
