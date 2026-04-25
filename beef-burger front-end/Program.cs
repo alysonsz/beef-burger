@@ -17,7 +17,6 @@ builder.Services.AddScoped(sp =>
     return client;
 });
 
-// Configure System.Text.Json to handle string enums and Brazilian dates from the API
 builder.Services.AddScoped(sp =>
     new JsonSerializerOptions
     {

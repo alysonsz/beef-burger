@@ -60,6 +60,10 @@ public class MenuItemService : IMenuItemService
     public async Task<ApiResponse<object>> DeleteAsync(int id)
     {
         var response = await _httpClient.DeleteAsync($"api/v1/menuitems/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            return new ApiResponse<object> { Success = true, Message = "Deleted successfully" };
+        }
         return await response.Content.ReadFromJsonAsync<ApiResponse<object>>(_jsonOptions) 
                ?? new ApiResponse<object>();
     }
