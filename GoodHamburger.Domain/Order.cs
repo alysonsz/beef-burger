@@ -78,6 +78,14 @@ public class Order
             throw new InvalidOperationException($"O item '{Fries.Name}' não é uma batata frita.");
         if (Drink is not null && Drink.Category != "Drink")
             throw new InvalidOperationException($"O item '{Drink.Name}' não é uma bebida.");
+
+        var ids = new List<int>();
+        if (Sandwich is not null) ids.Add(Sandwich.Id);
+        if (Fries is not null) ids.Add(Fries.Id);
+        if (Drink is not null) ids.Add(Drink.Id);
+
+        if (ids.Distinct().Count() != ids.Count)
+            throw new InvalidOperationException("Um pedido não pode conter itens duplicados.");
     }
 
     private void CalculateTotals()

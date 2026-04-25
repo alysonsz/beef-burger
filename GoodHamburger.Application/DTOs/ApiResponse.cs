@@ -53,7 +53,7 @@ public class ApiResponse<T>
 
 public class ApiResponse : ApiResponse<object>
 {
-    public static ApiResponse Ok(string message, object? data = null, int? count = null)
+    public new static ApiResponse Ok(string message, object? data = null, int? count = null)
     {
         return new ApiResponse
         {
@@ -84,7 +84,7 @@ public class ApiResponse : ApiResponse<object>
         };
     }
 
-    public new static ApiResponse Created(string message, object? data = null)
+    public static ApiResponse Created(string message, object? data = null)
     {
         return new ApiResponse
         {
